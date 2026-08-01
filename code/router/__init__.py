@@ -9,7 +9,7 @@ from .safety import (
     assess_risk,
     should_force_mute,
 )
-from .types import ContentSummary, InjectionHit, RiskAssessment
+from .types import ContentSummary, InjectionHit, Prediction, RiskAssessment
 
 __all__ = [
     "DOMAIN_MISMATCH_WEIGHT",
@@ -18,6 +18,7 @@ __all__ = [
     "REPORT_WEIGHT",
     "ContentSummary",
     "InjectionHit",
+    "Prediction",
     "RiskAssessment",
     "assess_risk",
     "has_injection",

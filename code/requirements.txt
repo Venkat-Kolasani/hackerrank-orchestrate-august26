@@ -1,0 +1,5 @@
+# Message Notification Router — Stage 1 baseline
+# Python 3.10+ recommended (tested on 3.14)
+
+# No third-party packages required for the offline baseline.
+# Optional later stages may add provider SDKs; keep them optional.

@@ -18,7 +18,7 @@ msg_060,digest,unknown,Useful for later review based on this recipient's channel
 msg_004,mute,business_update,Metadata risk signals: report_count=0.10.,0.5803,none
 msg_030,mute,forward,Metadata risk signals: forwarded_count=0.07. supported by prior recipient reactions.,0.5477,message_0115;message_0335;message_0050
 msg_045,mute,unknown,Routed as mute with type unknown.,0.5617,none
-msg_052,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05. supported by prior recipient reactions.",0.95,message_0208;message_0160;message_0207
+msg_052,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.95,message_0208;message_0160;message_0207
 msg_009,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6089,message_0074
 msg_071,mute,unknown,Routed as mute with type unknown.,0.5791,none
 msg_016,mute,scam,Scam-like content signals: wallet_verification. supported by prior recipient reactions.,0.6828,message_0024;message_0088;message_0184
@@ -40,7 +40,7 @@ msg_106,digest,personal,Useful for later review based on this recipient's channe
 msg_006,mute,unknown,Routed as mute with type unknown. supported by prior recipient reactions.,0.646,message_0271;message_0030
 msg_109,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6335,message_0150;message_0149
 msg_108,mute,scam,Deterministic injection scanner matched action_equals in message_text. supported by prior recipient reactions.,0.95,message_0094;message_0093;message_0236
-msg_019,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35. supported by prior recipient reactions.",0.945,message_0277;message_0094;message_0093
+msg_019,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.95,message_0277;message_0094;message_0093
 msg_088,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions. media was present but left uninterpreted in the offline baseline.,0.5126,message_0025;message_0050;message_0115
 msg_056,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6281,message_0167;message_0168
 msg_027,mute,promotion,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. supported by prior recipient reactions.",0.5234,message_0007;message_0033;message_0272
@@ -52,7 +52,7 @@ msg_061,mute,spam,Metadata risk signals: forwarded_count=0.20. supported by prio
 msg_020,digest,urgent,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions.,0.6398,message_0114;message_0049;message_0113
 msg_017,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6311,message_0089;message_0090
 msg_058,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6434,message_0039;message_0040;message_0241
-msg_026,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35. supported by prior recipient reactions.",0.945,message_0032;message_0107;message_0108
+msg_026,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.13, young_domain=0.14. supported by prior recipient reactions.",0.95,message_0032;message_0107;message_0108
 msg_047,mute,unknown,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.616,message_0152;message_0151;message_0237
 msg_046,mute,scam,"Scam-like content signals: otp_request, wallet_verification, credential_harvest. supported by prior recipient reactions.",0.95,message_0148;message_0147
 msg_042,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6279,message_0140;message_0139
@@ -60,7 +60,7 @@ msg_079,mute,scam,Scam-like content signals: otp_request. supported by prior rec
 msg_098,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6274,message_0054;message_0225;message_0226
 msg_037,mute,unknown,Routed as mute with type unknown. supported by prior recipient reactions.,0.6499,message_0271;message_0030
 msg_007,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6252,message_0070;message_0069
-msg_085,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35. media was present but left uninterpreted in the offline baseline.",0.775,none
+msg_085,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.14, young_domain=0.11. media was present but left uninterpreted in the offline baseline.",0.8,none
 msg_001,mute,unknown,Routed as mute with type unknown.,0.5926,none
 msg_021,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6735,message_0068;message_0098;message_0001
 msg_028,mute,promotion,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. supported by prior recipient reactions.",0.5682,message_0034;message_0112;message_0111
@@ -83,8 +83,8 @@ msg_053,mute,spam,Metadata risk signals: forwarded_count=0.15. supported by prio
 msg_059,mute,unknown,Routed as mute with type unknown. supported by prior recipient reactions.,0.637,message_0174;message_0173
 msg_024,mute,promotion,"Metadata risk signals: report_count=0.09, forwarded_count=0.07. supported by prior recipient reactions.",0.6288,message_0257;message_0402;message_0103
 msg_072,mute,scam,"Scam-like content signals: otp_request, wallet_verification. supported by prior recipient reactions.",0.6433,message_0173;message_0174
-msg_036,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05. supported by prior recipient reactions.",0.95,message_0283;message_0127;message_0128
-msg_076,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05. supported by prior recipient reactions.",0.95,message_0208;message_0160;message_0207
+msg_036,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.11, young_domain=0.13. supported by prior recipient reactions.",0.95,message_0283;message_0127;message_0128
+msg_076,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.95,message_0208;message_0160;message_0207
 msg_055,mute,unknown,Routed as mute with type unknown.,0.598,none
 msg_102,mute,personal,Routed as mute with type personal.,0.5638,none
 msg_080,mute,unknown,Routed as mute with type unknown. supported by prior recipient reactions.,0.6498,message_0271;message_0030

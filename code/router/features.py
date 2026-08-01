@@ -153,6 +153,8 @@ class MessageFeatures:
     media_uninterpreted: bool = False
     media_missing: bool = False
     user_reports_30d: int = 0
+    account_age_days: Optional[int] = None
+    domain_age_days: Optional[int] = None
     notification_load: float = 0.0
     channel_open_rate: float = 0.0
     channel_dismiss_rate: float = 0.0
@@ -356,10 +358,16 @@ def compute_features(dataset: Dataset, message: MessageRecord) -> MessageFeature
             sender_trust = clip01(0.35 + open_rate * 0.45 - dismiss_rate * 0.35)
         else:
             sender_trust = 0.55
+    account_age_days: Optional[int] = None
+    domain_age_days: Optional[int] = None
     if business:
+        account_age_days = business.account_age_days
+        domain_age_days = business.domain_used_by_sender_age_days
         age_factor = clip01(business.account_age_days / 365.0)
         domain_age_factor = clip01(business.domain_used_by_sender_age_days / 365.0)
         sender_trust = clip01(sender_trust * 0.7 + 0.3 * min(age_factor, domain_age_factor))
+        if business.account_age_days < 90 or business.domain_used_by_sender_age_days < 90:
+            signals.append("young_sender_age")
         if business.user_reports_30d >= 10:
             sender_trust = min(sender_trust, 0.25)
             signals.append("high_report_volume")
@@ -467,6 +475,8 @@ def compute_features(dataset: Dataset, message: MessageRecord) -> MessageFeature
         media_uninterpreted=media_uninterpreted,
         media_missing=media_missing,
         user_reports_30d=business.user_reports_30d if business else 0,
+        account_age_days=account_age_days,
+        domain_age_days=domain_age_days,
         notification_load=notification_load,
         channel_open_rate=open_rate,
         channel_dismiss_rate=dismiss_rate,

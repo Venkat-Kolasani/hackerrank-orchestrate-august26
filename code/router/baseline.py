@@ -1,7 +1,8 @@
-"""Deterministic offline router (Stages 1–2).
+"""Deterministic offline router (Stages 1–3).
 
 Stage 1: typed loading + exact output contract.
 Stage 2: recipient-specific historical features + evidence retrieval.
+Stage 3: safety gate (injection + scam metadata) before personalization.
 Safety/priority modules remain authoritative for mute/notify ceilings.
 """
 
@@ -56,6 +57,16 @@ _OTP_RE = re.compile(
     re.IGNORECASE,
 )
 
+_PHISHING_SIGNALS = frozenset(
+    {
+        "otp_request",
+        "credential_harvest",
+        "wallet_verification",
+        "urgent_payment_link",
+        "urgency_pressure",
+    }
+)
+
 
 def _infer_message_type(
     *,
@@ -65,11 +76,17 @@ def _infer_message_type(
     forced_mute: bool,
     scam_signals: list[str],
     forwarded_count: int,
+    injection_hit: bool = False,
 ) -> str:
-    if forced_mute or any(
-        signal in {"otp_request", "credential_harvest", "wallet_verification"}
-        for signal in scam_signals
-    ):
+    phishing = bool(_PHISHING_SIGNALS.intersection(scam_signals))
+    if forced_mute:
+        # Hard mute: scam for phishing/injection; spam for forward/report floods.
+        if phishing or injection_hit:
+            return "scam"
+        if forwarded_count >= 5:
+            return "spam"
+        return "scam"
+    if phishing:
         return "scam"
     if action == "mute" and forwarded_count >= 5:
         return "spam"
@@ -175,18 +192,21 @@ def _confidence_from_decision(
 
 
 def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
-    """Route one message using Stage 2 features and evidence."""
+    """Route one message using Stage 2 features and Stage 3 safety gate."""
     features = compute_features(dataset, message)
     content = ContentSummary(
         message_text=message.message_text,
         media_type=message.media_type,
         media_id=message.media_id,
     )
+    # Safety gate runs before personalization/priority can elevate action.
     risk = assess_risk(
         content,
         domain_mismatch=features.domain_mismatch,
         user_reports_30d=features.user_reports_30d,
         forwarded_count=message.forwarded_count,
+        account_age_days=features.account_age_days,
+        domain_age_days=features.domain_age_days,
     )
 
     terms = PriorityTerms(
@@ -202,7 +222,13 @@ def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
         domain_mismatch=features.domain_mismatch,
         credential_otp_or_payment_request=bool(
             set(risk.scam_signals)
-            & {"otp_request", "credential_harvest", "urgent_payment_link"}
+            & {
+                "otp_request",
+                "credential_harvest",
+                "urgent_payment_link",
+                "wallet_verification",
+                "urgency_pressure",
+            }
         ),
         sender_is_group_admin=features.sender_is_group_admin,
     )
@@ -226,6 +252,7 @@ def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
         forced_mute=risk.forced_mute,
         scam_signals=risk.scam_signals,
         forwarded_count=message.forwarded_count,
+        injection_hit=bool(risk.injection_hits),
     )
     reason = _build_reason(
         action=decision.action,

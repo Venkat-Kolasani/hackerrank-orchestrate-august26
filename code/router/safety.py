@@ -5,9 +5,9 @@ LLM call. Hits raise ``risk_score`` before a model ever sees the message.
 The hard mute gate can only move decisions toward mute, never toward notify.
 
 ``confirmed_risk`` in priority.py is fed from ``risk_score``. Domain mismatch,
-report volume, and forward volume are first-class scored inputs — not flags
-that only matter if a keyword also fires — so the score-only notify ceiling
-actually arms when those signals are present alone.
+report volume, forward volume, and young account/domain age are first-class
+scored inputs — not flags that only matter if a keyword also fires — so the
+score-only notify ceiling actually arms when those signals are present alone.
 """
 
 from __future__ import annotations
@@ -29,6 +29,12 @@ REPORT_WEIGHT = 0.35
 REPORT_SATURATION_COUNT = 20  # user_reports_30d at which report contrib maxes
 FORWARD_WEIGHT = 0.25
 FORWARD_SATURATION_COUNT = 10  # forwarded_count at which forward contrib maxes
+# Young / unknown-new senders: full weight at age 0, linear decay to 0 by
+# AGE_SATURATION_DAYS. Alone they arm the notify ceiling only when both ages
+# are near zero; they never hard-mute without content/injection signals.
+ACCOUNT_AGE_WEIGHT = 0.18
+DOMAIN_AGE_WEIGHT = 0.14
+AGE_SATURATION_DAYS = 90
 
 _SCAM_PATTERNS: tuple[tuple[str, float, re.Pattern[str]], ...] = (
     (
@@ -63,6 +69,22 @@ _SCAM_PATTERNS: tuple[tuple[str, float, re.Pattern[str]], ...] = (
             re.IGNORECASE,
         ),
     ),
+    # Coercive urgency / threat pressure (distinct from legitimate same-day ops).
+    (
+        "urgency_pressure",
+        0.20,
+        re.compile(
+            r"\b(?:"
+            r"act\s+now|"
+            r"within\s+\d+\s*(?:hours?|hrs?|mins?|minutes?)\b.{0,40}\b(?:or|to\s+avoid)|"
+            r"(?:immediately|right\s+now).{0,40}\b(?:or\s+(?:lose|forfeit)|to\s+avoid)|"
+            r"(?:account|wallet|access).{0,40}\b(?:will\s+be|is\s+being)\s+"
+            r"(?:locked|suspended|closed|blocked|terminated)|"
+            r"to\s+avoid\s+(?:permanent\s+)?(?:suspension|closure|lock)"
+            r")\b",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 
@@ -78,11 +100,21 @@ def _base_scam_score(text: str) -> tuple[float, list[str]]:
     return min(score, 1.0), signals
 
 
+def _young_age_contrib(age_days: Optional[int], weight: float) -> float:
+    """Higher risk for newer accounts/domains; ``None`` means not applicable."""
+    if age_days is None:
+        return 0.0
+    age = max(0, int(age_days))
+    return weight * max(0.0, 1.0 - (age / AGE_SATURATION_DAYS))
+
+
 def _metadata_score(
     *,
     domain_mismatch: bool,
     user_reports_30d: int,
     forwarded_count: int,
+    account_age_days: Optional[int] = None,
+    domain_age_days: Optional[int] = None,
 ) -> tuple[float, list[str], dict[str, float]]:
     """Score sender/channel metadata independently of message keywords."""
     score = 0.0
@@ -91,6 +123,8 @@ def _metadata_score(
         "domain_mismatch": 0.0,
         "report_count": 0.0,
         "forwarded_count": 0.0,
+        "young_account": 0.0,
+        "young_domain": 0.0,
     }
 
     if domain_mismatch:
@@ -114,6 +148,18 @@ def _metadata_score(
         score += forward_contrib
         signals.append(f"forwarded_count:{forwards}")
 
+    account_contrib = _young_age_contrib(account_age_days, ACCOUNT_AGE_WEIGHT)
+    if account_contrib > 0:
+        parts["young_account"] = round(account_contrib, 4)
+        score += account_contrib
+        signals.append(f"young_account:{int(account_age_days or 0)}d")
+
+    domain_contrib = _young_age_contrib(domain_age_days, DOMAIN_AGE_WEIGHT)
+    if domain_contrib > 0:
+        parts["young_domain"] = round(domain_contrib, 4)
+        score += domain_contrib
+        signals.append(f"young_domain:{int(domain_age_days or 0)}d")
+
     return min(score, 1.0), signals, parts
 
 
@@ -123,6 +169,8 @@ def assess_risk(
     domain_mismatch: bool = False,
     user_reports_30d: int = 0,
     forwarded_count: int = 0,
+    account_age_days: Optional[int] = None,
+    domain_age_days: Optional[int] = None,
     apply_injection: bool = True,
     hard_mute_threshold: float = HARD_MUTE_THRESHOLD,
 ) -> RiskAssessment:
@@ -137,6 +185,9 @@ def assess_risk(
         Recent report volume for the business/sender channel.
     forwarded_count:
         Forwarding fan-out on this message.
+    account_age_days / domain_age_days:
+        Business account and sender-domain ages. ``None`` skips age scoring
+        (personal/group messages). Younger ages raise metadata risk.
     apply_injection:
         When False, skip the deterministic injection scanner. Used by tests
         to show before/after risk scores for the same content.
@@ -151,6 +202,8 @@ def assess_risk(
         domain_mismatch=domain_mismatch,
         user_reports_30d=user_reports_30d,
         forwarded_count=forwarded_count,
+        account_age_days=account_age_days,
+        domain_age_days=domain_age_days,
     )
 
     # Saturating combination of keyword, injection, and metadata risk.
@@ -172,7 +225,13 @@ def assess_risk(
             "Metadata risk signals: "
             + ", ".join(
                 f"{name}={meta_parts[name]:.2f}"
-                for name in ("domain_mismatch", "report_count", "forwarded_count")
+                for name in (
+                    "domain_mismatch",
+                    "report_count",
+                    "forwarded_count",
+                    "young_account",
+                    "young_domain",
+                )
                 if meta_parts[name] > 0
             )
         )

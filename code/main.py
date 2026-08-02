@@ -67,7 +67,10 @@ def main(argv: list[str] | None = None) -> int:
     for warning in dataset.media_warnings:
         print(f"warning: {warning}", file=sys.stderr)
 
-    predictions = route_dataset(dataset)
+    from router.media import build_media_interpreter
+
+    interpreter = build_media_interpreter()
+    predictions = route_dataset(dataset, interpreter=interpreter)
     history_ids = {item.message_id for item in dataset.message_history}
     write_output_csv(
         output_path,

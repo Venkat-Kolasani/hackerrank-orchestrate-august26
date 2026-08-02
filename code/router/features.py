@@ -14,7 +14,7 @@ from datetime import datetime, time, timedelta
 from typing import Optional
 
 from .data import Dataset
-from .types import MessageEventRecord, MessageRecord
+from .types import ContentSummary, MessageEventRecord, MessageRecord
 
 _TOKEN_RE = re.compile(r"[a-z0-9]{2,}")
 _URGENT_RE = re.compile(
@@ -298,8 +298,17 @@ def _repetition_score(
     return clip01(best), template_hit
 
 
-def compute_features(dataset: Dataset, message: MessageRecord) -> MessageFeatures:
-    """Build recipient-specific features for ``message``."""
+def compute_features(
+    dataset: Dataset,
+    message: MessageRecord,
+    content: Optional[ContentSummary] = None,
+) -> MessageFeatures:
+    """Build recipient-specific features for ``message``.
+
+    When ``content`` includes OCR/ASR channels, text-based signals use the
+    joined untrusted content. ``media_uninterpreted`` is False only when media
+    perception actually filled a media channel.
+    """
     user = dataset.get_user(message.user_id)
     business = dataset.get_business(message.business_id)
     membership = dataset.get_group_member(message.group_id, message.user_id)
@@ -311,7 +320,13 @@ def compute_features(dataset: Dataset, message: MessageRecord) -> MessageFeature
     history = recipient_history(dataset, message.user_id)
     entity_history = [item for item in history if same_entity(message, item.message)]
 
-    text = message.message_text or ""
+    if content is None:
+        content = ContentSummary(
+            message_text=message.message_text or "",
+            media_type=message.media_type,
+            media_id=message.media_id,
+        )
+    text = content.joined_text()
     signals: list[str] = []
 
     domain_mismatch = bool(business.domain_mismatch) if business else False
@@ -447,11 +462,18 @@ def compute_features(dataset: Dataset, message: MessageRecord) -> MessageFeature
         quiet_hour_cost = 0.85 if urgency < 0.7 else 0.25
         signals.append("quiet_hours")
 
-    media_uninterpreted = bool(message.media_type)
+    media_channels_filled = bool(
+        (content.ocr_text and content.ocr_text.strip())
+        or (content.asr_transcript and content.asr_transcript.strip())
+        or (content.caption and content.caption.strip())
+    )
+    media_uninterpreted = bool(message.media_type) and not media_channels_filled
     media_missing = bool(message.media_type and (media_ref is None or not media_ref.available))
-    if media_uninterpreted and not text.strip():
+    if media_uninterpreted and not (message.message_text or "").strip():
         urgency = min(urgency, 0.2)
         personal_relevance = min(personal_relevance, 0.25)
+        signals.append("media_uninterpreted")
+    elif media_uninterpreted:
         signals.append("media_uninterpreted")
     if media_missing:
         personal_relevance = min(personal_relevance, 0.2)

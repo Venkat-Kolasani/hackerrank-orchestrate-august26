@@ -1,21 +1,24 @@
-"""Deterministic offline router (Stages 1–3).
+"""Deterministic offline router (Stages 1–4).
 
 Stage 1: typed loading + exact output contract.
 Stage 2: recipient-specific historical features + evidence retrieval.
 Stage 3: safety gate (injection + scam metadata) before personalization.
+Stage 4: multimodal perception into ContentSummary (OCR/ASR/caption).
 Safety/priority modules remain authoritative for mute/notify ceilings.
 """
 
 from __future__ import annotations
 
 import re
+from typing import Optional
 
 from .data import Dataset
 from .evidence import retrieve_evidence
 from .features import MessageFeatures, compute_features, in_quiet_hours
+from .media import MediaInterpreter, build_media_interpreter, interpret_message
 from .priority import DEFAULT_WEIGHTS, PriorityTerms, decide_action
 from .safety import assess_risk
-from .types import ContentSummary, MessageRecord, Prediction
+from .types import MessageRecord, Prediction
 
 # Re-export for existing Stage 1 tests.
 __all__ = ["in_quiet_hours", "route_dataset", "route_message"]
@@ -120,6 +123,7 @@ def _build_reason(
     risk_reasons: list[str],
     features: MessageFeatures,
     evidence: str,
+    media_source: str = "offline",
 ) -> str:
     parts: list[str] = []
     if risk_reasons:
@@ -151,8 +155,11 @@ def _build_reason(
 
     if evidence != "none":
         parts.append("supported by prior recipient reactions")
-    if features.media_uninterpreted and not features.text.strip():
-        parts.append("media was present but left uninterpreted in the offline baseline")
+    if features.media_uninterpreted:
+        if media_source == "missing":
+            parts.append("referenced media file was unavailable so OCR/ASR stayed empty")
+        else:
+            parts.append("media was present but left uninterpreted in the offline baseline")
 
     reason = ". ".join(parts).strip()
     if not reason.endswith("."):
@@ -191,15 +198,17 @@ def _confidence_from_decision(
     return round(max(0.35, min(0.95, base)), 4)
 
 
-def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
-    """Route one message using Stage 2 features and Stage 3 safety gate."""
-    features = compute_features(dataset, message)
-    content = ContentSummary(
-        message_text=message.message_text,
-        media_type=message.media_type,
-        media_id=message.media_id,
-    )
-    # Safety gate runs before personalization/priority can elevate action.
+def route_message(
+    dataset: Dataset,
+    message: MessageRecord,
+    interpreter: Optional[MediaInterpreter] = None,
+) -> Prediction:
+    """Route one message using media perception, features, and safety gate."""
+    media = interpreter or build_media_interpreter()
+    content, perception = interpret_message(dataset, message, media)
+    features = compute_features(dataset, message, content)
+    # Safety gate scans full normalized content (text + OCR + ASR) before
+    # personalization/priority can elevate action.
     risk = assess_risk(
         content,
         domain_mismatch=features.domain_mismatch,
@@ -260,6 +269,7 @@ def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
         risk_reasons=risk.reasons,
         features=features,
         evidence=evidence,
+        media_source=perception.source,
     )
     confidence = _confidence_from_decision(
         action=decision.action,
@@ -282,6 +292,10 @@ def route_message(dataset: Dataset, message: MessageRecord) -> Prediction:
     )
 
 
-def route_dataset(dataset: Dataset) -> list[Prediction]:
+def route_dataset(
+    dataset: Dataset,
+    interpreter: Optional[MediaInterpreter] = None,
+) -> list[Prediction]:
     """Route every incoming message in deterministic input order."""
-    return [route_message(dataset, message) for message in dataset.messages]
+    media = interpreter or build_media_interpreter()
+    return [route_message(dataset, message, interpreter=media) for message in dataset.messages]

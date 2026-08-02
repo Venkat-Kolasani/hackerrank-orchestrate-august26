@@ -72,6 +72,8 @@ via `injection.py` before personalization.
 | `ROUTER_ASR_MODEL` | Transcription model | `whisper-1` |
 | `ROUTER_MEDIA_CACHE_DIR` | Cache directory | `code/.cache/media` |
 | `ROUTER_MEDIA_CACHE_DISABLE` | `1` / `true` disables cache | unset |
+| `ROUTER_DECISION_PROVIDER` | `auto` \| `offline` \| `openai` | `auto` |
+| `ROUTER_DECISION_MODEL` | Decision chat model | `gpt-4o-mini` |
 
 Without credentials or when a media file is missing, the router stays
 runnable, warns, reduces confidence for uninterpreted media, and does not
@@ -93,7 +95,30 @@ offline non-fabrication, unavailable media, cache hashing, prompt delimiters).
 - Stage 3: safety gate — injection scanner + explainable risk before
   personalization (`HARD_MUTE_THRESHOLD=0.75`, notify ceiling floor `0.18`)
 - Stage 4: MediaInterpreter (offline fallback + optional OpenAI + hash cache)
-- Later: constrained model decisions, eval harness
+- Stage 5: constrained decision layer (`code/router/decision.py`) with
+  temperature-0 model path and deterministic fallback
+- Later: eval harness / packaging
+
+## Stage 5 contextual decision
+
+`decide()` receives only normalized `ContentSummary`, deterministic features,
+priority/safety summaries, and ranked evidence. It returns validated JSON
+fields (`action`, `message_type`, `reason`, `confidence`, `evidence_message_ids`).
+
+| Mode | When | Behavior |
+|---|---|---|
+| Deterministic fallback | default / no key / `ROUTER_DECISION_PROVIDER=offline` | Priority action + signal-based type/reason/confidence |
+| OpenAI decision | `OPENAI_API_KEY` + provider `auto`/`openai` | Temperature `0` JSON; post-validated |
+
+Safety is authoritative after any model response:
+
+- hard mute cannot be weakened to digest/notify
+- notify ceiling cannot be weakened to notify
+- evidence IDs must come from the retriever allow-list (else `none`)
+- generic boilerplate reasons are rejected (fallback used)
+
+Additional env vars: `ROUTER_DECISION_PROVIDER`, `ROUTER_DECISION_MODEL`
+(default `gpt-4o-mini`).
 
 ## Stage 2 behavior
 

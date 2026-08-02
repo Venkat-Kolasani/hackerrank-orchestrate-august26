@@ -88,6 +88,20 @@ python -m pytest code/tests -q
 Media-specific coverage lives in `code/tests/test_media.py` (path resolution,
 offline non-fabrication, unavailable media, cache hashing, prompt delimiters).
 
+## Evaluation
+
+Sample labels are evaluation-only. Production `code/main.py` refuses
+`sample_messages.csv`. Run:
+
+```bash
+python code/evaluation/main.py --dataset dataset
+```
+
+This strips label columns before routing, scores action/type macro-F1,
+confusion matrices, evidence overlap, confidence buckets, and invalid outputs,
+then writes diagnostics under `code/evaluation/diagnostics/` (gitignored,
+outside `dataset/`).
+
 ## Stage status
 
 - Stage 1: typed loader, output validation, deterministic baseline CLI
@@ -97,7 +111,8 @@ offline non-fabrication, unavailable media, cache hashing, prompt delimiters).
 - Stage 4: MediaInterpreter (offline fallback + optional OpenAI + hash cache)
 - Stage 5: constrained decision layer (`code/router/decision.py`) with
   temperature-0 model path and deterministic fallback
-- Later: eval harness / packaging
+- Stage 6: sample evaluation harness + aggregate tuning loop
+- Later: packaging / AI judge brief
 
 ## Stage 5 contextual decision
 

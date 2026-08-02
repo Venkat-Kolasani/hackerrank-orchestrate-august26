@@ -65,7 +65,9 @@ _GREETING_RE = re.compile(
 _URGENT_RE = re.compile(
     r"\b("
     r"urgent|asap|immediately|right\s+now|today\s+only|same[-\s]?day|"
-    r"deadline|expires?\s+today|last\s+chance|emergency|due\s+(today|tonight|now)"
+    r"deadline|expires?\s+today|last\s+chance|emergency|due\s+(today|tonight|now)|"
+    r"for\s+today|leaving\s+early|mins?\s+early|expected\s+to\s+reach|"
+    r"delivery\s+today|heads-?up|tanker|bus\s+is\s+leaving|packed\s+and|\d+\s*mins?\b"
     r")\b",
     re.IGNORECASE,
 )
@@ -222,6 +224,8 @@ def infer_message_type(
         return "business_update"
     if conversation_type == "personal":
         return "personal"
+    if conversation_type == "group":
+        return "personal"
     if forwarded_count > 0:
         return "forward"
     return "unknown"
@@ -349,6 +353,32 @@ def deterministic_decide(ctx: DecisionContext) -> DecisionResult:
     if ctx.risk.forced_mute:
         action = "mute"
         clamped = True
+    else:
+        # Soft uplift: avoid muting weak-positive / domain-suspicious-but-not-hard
+        # cases that still deserve a digest glance.
+        text = ctx.content.joined_text()
+        promo_like = bool(_PROMO_RE.search(text))
+        greeting_like = bool(_GREETING_RE.search(text) and len(text) < 120)
+        phishing = bool(_PHISHING_SIGNALS.intersection(ctx.risk.scam_signals))
+        if action == "mute" and not phishing and ctx.risk.risk_score < 0.75:
+            if greeting_like:
+                action = "digest"
+                clamped = True
+            elif (
+                ctx.features.domain_mismatch
+                and promo_like
+                and ctx.features.personal_relevance >= 0.35
+            ):
+                action = "digest"
+                clamped = True
+            elif (
+                ctx.features.verified_business
+                and not ctx.features.domain_mismatch
+                and ctx.features.personal_relevance >= 0.45
+                and ctx.risk.risk_score < 0.35
+            ):
+                action = "digest"
+                clamped = True
 
     text = ctx.content.joined_text()
     message_type = infer_message_type(

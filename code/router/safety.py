@@ -87,6 +87,19 @@ _SCAM_PATTERNS: tuple[tuple[str, float, re.Pattern[str]], ...] = (
     ),
 )
 
+# Legitimate safety copy often mentions OTP while telling users not to share it.
+_OTP_SAFE_CONTEXT = re.compile(
+    r"(?:"
+    r"(?:never|don'?t|do\s+not)\s+(?:ask|request|share|send|provide).{0,40}"
+    r"\b(?:otp|one[-\s]?time\s+password|verification\s+code|password|pin)\b|"
+    r"\b(?:otp|one[-\s]?time\s+password|verification\s+code)\b.{0,40}"
+    r"(?:never|don'?t|do\s+not)\s+(?:ask|request|share|send|provide)|"
+    r"safety\s+advisory|"
+    r"we\s+never\s+ask"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _base_scam_score(text: str) -> tuple[float, list[str]]:
     if not text.strip():
@@ -94,9 +107,12 @@ def _base_scam_score(text: str) -> tuple[float, list[str]]:
     score = 0.0
     signals: list[str] = []
     for signal_id, weight, pattern in _SCAM_PATTERNS:
-        if pattern.search(text):
-            score += weight
-            signals.append(signal_id)
+        if not pattern.search(text):
+            continue
+        if signal_id == "otp_request" and _OTP_SAFE_CONTEXT.search(text):
+            continue
+        score += weight
+        signals.append(signal_id)
     return min(score, 1.0), signals
 
 

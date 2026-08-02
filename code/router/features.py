@@ -22,7 +22,10 @@ _URGENT_RE = re.compile(
     r"urgent|asap|immediately|right\s+now|today\s+only|same[-\s]?day|"
     r"deadline|expires?\s+today|last\s+chance|before\s+\d|"
     r"emergency|evacuate|hospital|ambulance|power\s+cut|water\s+cut|"
-    r"meeting\s+in\s+\d+|due\s+(today|tonight|now)"
+    r"meeting\s+in\s+\d+|due\s+(today|tonight|now)|"
+    r"for\s+today|leaving\s+early|mins?\s+early|expected\s+to\s+reach|"
+    r"delivery\s+today|heads-?up|tanker|bus\s+is\s+leaving|packed\s+and|"
+    r"can\s+wait\s+maybe|\d+\s*mins?\b"
     r")\b",
     re.IGNORECASE,
 )
@@ -256,11 +259,20 @@ def _urgency_score(text: str) -> float:
     if not text:
         return 0.0
     if _URGENT_RE.search(text):
-        return 0.85
+        # Same-day operational language is a strong interrupt cue.
+        if re.search(r"\b(today|tonight|leaving|tanker|bus|delivery|packed)\b", text, re.I):
+            return 0.80
+        return 0.70
     if _PAYMENT_RE.search(text) and re.search(
         r"\b(today|now|due|overdue|failed)\b", text, re.IGNORECASE
     ):
         return 0.65
+    if re.search(r"\b(today|tonight)\b", text, re.IGNORECASE) and re.search(
+        r"\b(change|update|reminder|schedule|leaving|reach|delivery)\b",
+        text,
+        re.IGNORECASE,
+    ):
+        return 0.70
     return 0.0
 
 
@@ -436,7 +448,9 @@ def compute_features(
     if muted_group:
         low_engagement = max(low_engagement, 0.7)
         signals.append("muted_group")
-    if opted_out:
+    # Opt-out should penalize promotions, not operational order/booking updates.
+    promo_like = bool(_PROMO_RE.search(text))
+    if opted_out and promo_like:
         low_engagement = max(low_engagement, 0.8)
     if entity_count:
         low_engagement = max(low_engagement, dismiss_rate)
@@ -445,6 +459,9 @@ def compute_features(
             signals.append("channel_reports")
     if user and user.notifications_dismissed_30d > user.messages_opened_30d:
         low_engagement = max(low_engagement, 0.45)
+    # Admin same-day ops should not be buried by unrelated channel dismissals.
+    if sender_is_admin and urgency >= 0.5:
+        low_engagement = min(low_engagement, 0.25)
 
     notification_load = _daily_load(dataset, message.user_id, message.created_at)
     if notification_load >= 0.6:
@@ -478,6 +495,12 @@ def compute_features(
     if media_missing:
         personal_relevance = min(personal_relevance, 0.2)
         signals.append("media_missing")
+
+    # Re-apply after media adjustments so admin ops still surface.
+    if sender_is_admin and urgency >= 0.5:
+        low_engagement = min(low_engagement, 0.25)
+        if quiet:
+            quiet_hour_cost = 0.25 if urgency >= 0.7 else quiet_hour_cost
 
     return MessageFeatures(
         urgency=clip01(urgency),

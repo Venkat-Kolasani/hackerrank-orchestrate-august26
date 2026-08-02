@@ -146,7 +146,8 @@ HISTORY_HEAVY_WEIGHTS: Mapping[str, float] = {
 }
 
 NOTIFY_THRESHOLD = 0.45
-DIGEST_THRESHOLD = 0.15
+# Borderline greetings / weak-positive history should stay visible in digest.
+DIGEST_THRESHOLD = 0.10
 # Data-driven notify ceiling floor from message_history × message_events
 # calibration (Youden J on muted_after_message|message_reported vs rest).
 # Recompute with: python code/evaluation/calibrate_risk_threshold.py
@@ -186,6 +187,17 @@ def compound_mention_override_active(terms: PriorityTerms) -> bool:
         return False
     urgent = terms.urgency >= URGENCY_MENTION_FLOOR
     return urgent or terms.sender_is_group_admin
+
+
+def compound_admin_ops_override_active(terms: PriorityTerms) -> bool:
+    """Trusted group admin + clear operational urgency → interrupt.
+
+    Complements the mention override for same-day admin ops that may not
+    literally @mention the recipient (common in society/school groups).
+    """
+    if not terms.sender_is_group_admin:
+        return False
+    return terms.urgency >= URGENCY_MENTION_FLOOR
 
 
 def score_priority(
@@ -246,11 +258,13 @@ def decide_action(
         ceiling_applied = True
 
     mention_active = compound_mention_override_active(terms)
+    admin_ops_active = compound_admin_ops_override_active(terms)
     mention_applied = False
-    # Mention override cannot pierce safety hard-block (already returned) or
-    # the technical notify ceiling.
-    # Deliberate: mention override bypasses quiet_hour_cost — urgent @mentions interrupt during DND by design, not oversight.
-    if mention_active and not ceiling and action != "notify":
+    # Mention/admin-ops override cannot pierce safety hard-block (already returned)
+    # or the technical notify ceiling.
+    # Deliberate: these overrides bypass quiet_hour_cost — urgent @mentions /
+    # admin ops interrupt during DND by design, not oversight.
+    if (mention_active or admin_ops_active) and not ceiling and action != "notify":
         action = "notify"
         mention_applied = True
 
@@ -260,7 +274,7 @@ def decide_action(
         raw_action=raw_action,
         technical_ceiling_active=ceiling,
         technical_ceiling_applied=ceiling_applied,
-        mention_override_active=mention_active,
+        mention_override_active=mention_active or admin_ops_active,
         mention_override_applied=mention_applied,
         hard_blocked_by_safety=False,
         technical_indicators=technical_indicators(terms),

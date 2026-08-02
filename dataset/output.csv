@@ -1,111 +1,111 @@
 message_id,action,message_type,reason,confidence,evidence_message_ids
-msg_023,digest,business_update,Metadata risk signals: report_count=0.07. supported by prior recipient reactions.,0.6471,message_0243;message_0102;message_0101
-msg_091,mute,urgent,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6234,message_0238;message_0381
-msg_090,mute,personal,personal content routed to mute from channel signals.,0.5515,none
-msg_048,digest,urgent,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions.,0.6178,message_0150;message_0149
-msg_040,mute,spam,Metadata risk signals: forwarded_count=0.17. supported by prior recipient reactions.,0.6514,message_0136;message_0135
-msg_075,mute,business_update,Metadata risk signals: report_count=0.16.,0.5737,none
-msg_005,mute,unknown,unknown content routed to mute from channel signals. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.512,message_0096;message_0095;message_0401
+msg_023,digest,business_update,Metadata risk signals: report_count=0.07. supported by prior recipient reactions.,0.6951,message_0243;message_0102;message_0101
+msg_091,mute,urgent,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6199,message_0238;message_0381
+msg_090,digest,personal,Useful for later review but not interrupt-worthy given current signals.,0.5074,none
+msg_048,notify,urgent,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions.,0.6506,message_0150;message_0149
+msg_040,digest,personal,Metadata risk signals: forwarded_count=0.17. supported by prior recipient reactions.,0.6088,message_0259
+msg_075,digest,business_update,Metadata risk signals: report_count=0.16. supported by prior recipient reactions.,0.598,message_0206;message_0205
+msg_005,mute,personal,personal content routed to mute from channel signals. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.512,message_0096;message_0095;message_0401
 msg_104,mute,personal,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6436,message_0383;message_0232;message_0224
-msg_069,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6551,message_0042;message_0177;message_0193
+msg_069,digest,personal,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.5329,none
 msg_107,mute,scam,Deterministic injection scanner matched action_equals in message_text.,0.8375,none
 msg_070,mute,scam,Scam-like content signals: otp_request. supported by prior recipient reactions.,0.6338,message_0173;message_0174
-msg_003,mute,business_update,Metadata risk signals: report_count=0.05.,0.5819,none
-msg_099,mute,event,event content routed to mute from channel signals. supported by prior recipient reactions.,0.6476,message_0227
-msg_008,mute,business_update,Metadata risk signals: report_count=0.05. supported by prior recipient reactions.,0.6255,message_0296;message_0072;message_0071
+msg_003,digest,urgent,Metadata risk signals: report_count=0.05. supported by prior recipient reactions.,0.6715,message_0031;message_0400;message_0061
+msg_099,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6044,message_0227;message_0055;message_0362
+msg_008,digest,business_update,Metadata risk signals: report_count=0.05. supported by prior recipient reactions.,0.4992,message_0296;message_0072;message_0071
 msg_092,digest,business_update,Metadata risk signals: report_count=0.10. supported by prior recipient reactions.,0.67,message_0346
-msg_060,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.4965,message_0404;message_0284;message_0176
-msg_004,mute,business_update,Metadata risk signals: report_count=0.10.,0.5803,none
-msg_030,mute,forward,Metadata risk signals: forwarded_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5477,message_0115;message_0335;message_0050
-msg_045,mute,unknown,unknown content routed to mute from channel signals.,0.5617,none
+msg_060,notify,personal,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5531,message_0404;message_0284;message_0176
+msg_004,digest,business_update,Metadata risk signals: report_count=0.10. supported by prior recipient reactions.,0.6327,message_0005;message_0245;message_0246
+msg_030,mute,personal,Metadata risk signals: forwarded_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5477,message_0115;message_0335;message_0050
+msg_045,mute,personal,personal content routed to mute from channel signals.,0.5617,none
 msg_052,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.89,message_0208;message_0160;message_0207
-msg_009,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6089,message_0074
-msg_071,mute,unknown,unknown content routed to mute from channel signals.,0.5791,none
-msg_016,mute,scam,Scam-like content signals: wallet_verification. supported by prior recipient reactions.,0.6828,message_0024;message_0088;message_0184
+msg_009,mute,personal,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6089,message_0074
+msg_071,mute,personal,personal content routed to mute from channel signals.,0.5791,none
+msg_016,mute,scam,Scam-like content signals: wallet_verification. supported by prior recipient reactions.,0.6128,message_0024;message_0088;message_0184
 msg_065,digest,promotion,Metadata risk signals: report_count=0.10. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5174,message_0261;message_0260;message_0185
-msg_038,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6035,message_0131;message_0132
+msg_038,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.607,message_0131;message_0132
 msg_086,mute,business_update,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. media was present but left uninterpreted offline.",0.4516,none
 msg_014,mute,promotion,Metadata risk signals: report_count=0.10. supported by prior recipient reactions.,0.67,message_0017;message_0018;message_0258
 msg_094,mute,promotion,Metadata risk signals: report_count=0.09. supported by prior recipient reactions.,0.6132,message_0356
 msg_029,mute,spam,Metadata risk signals: forwarded_count=0.20. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5016,message_0095;message_0096;message_0401
 msg_105,mute,spam,Metadata risk signals: forwarded_count=0.17. supported by prior recipient reactions.,0.6742,message_0233;message_0373
-msg_002,notify,payment,Group admin sent a high-priority update for this recipient. supported by prior recipient reactions.,0.6941,message_0059;message_0169;message_0003
-msg_010,mute,business_update,Metadata risk signals: report_count=0.14. supported by prior recipient reactions.,0.6321,message_0011;message_0242;message_0075
+msg_002,notify,payment,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.8591,message_0059;message_0169;message_0003
+msg_010,digest,business_update,Metadata risk signals: report_count=0.14. supported by prior recipient reactions.,0.6347,message_0011;message_0242;message_0075
 msg_078,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6597,message_0211;message_0212
-msg_013,mute,promotion,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6414,message_0081;message_0082
+msg_013,digest,promotion,Useful for later review based on this recipient's channel history.,0.5433,none
 msg_018,mute,spam,Metadata risk signals: forwarded_count=0.23. supported by prior recipient reactions.,0.6407,message_0026;message_0092;message_0091
 msg_044,mute,scam,"Scam-like content signals: otp_request, wallet_verification. supported by prior recipient reactions.",0.6824,message_0143;message_0144
-msg_032,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.612,message_0119;message_0285;message_0120
-msg_106,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6511,message_0377;message_0234;message_0376
-msg_006,mute,unknown,unknown content routed to mute from channel signals. supported by prior recipient reactions.,0.646,message_0271;message_0030
-msg_109,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6335,message_0150;message_0149
+msg_032,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.612,message_0119;message_0285;message_0120
+msg_106,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6471,message_0377;message_0234;message_0376
+msg_006,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6025,message_0067;message_0097;message_0029
+msg_109,notify,personal,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6603,message_0150;message_0149
 msg_108,mute,scam,Deterministic injection scanner matched action_equals in message_text. supported by prior recipient reactions.,0.89,message_0094;message_0093;message_0236
 msg_019,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.89,message_0277;message_0094;message_0093
-msg_088,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5126,message_0025;message_0050;message_0115
+msg_088,mute,personal,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5126,message_0025;message_0050;message_0115
 msg_056,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6281,message_0167;message_0168
-msg_027,mute,promotion,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.",0.5234,message_0007;message_0033;message_0272
-msg_050,mute,business_update,User opted out of promotions from this business.,0.5716,none
-msg_083,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5072,message_0219
-msg_063,mute,urgent,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6309,message_0181;message_0182
-msg_033,digest,urgent,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6766,message_0121;message_0122
-msg_061,mute,spam,Metadata risk signals: forwarded_count=0.20. supported by prior recipient reactions.,0.656,message_0177;message_0193;message_0042
-msg_020,digest,urgent,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions.,0.6398,message_0114;message_0049;message_0113
-msg_017,mute,unknown,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6311,message_0089;message_0090
+msg_027,digest,promotion,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.",0.35,message_0007;message_0033;message_0272
+msg_050,digest,business_update,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6227,message_0279;message_0278;message_0155
+msg_083,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5072,message_0219
+msg_063,mute,urgent,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6274,message_0181;message_0182
+msg_033,digest,urgent,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6646,message_0121;message_0122
+msg_061,digest,greeting,Metadata risk signals: forwarded_count=0.20. supported by prior recipient reactions.,0.534,none
+msg_020,digest,urgent,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions.,0.6358,message_0114;message_0049;message_0113
+msg_017,mute,personal,Recipient has muted this group and the message is not high urgency. supported by prior recipient reactions.,0.6311,message_0089;message_0090
 msg_058,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6434,message_0039;message_0040;message_0241
 msg_026,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.13, young_domain=0.14. supported by prior recipient reactions.",0.89,message_0032;message_0107;message_0108
-msg_047,mute,unknown,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.616,message_0152;message_0151;message_0237
+msg_047,notify,personal,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6638,message_0149;message_0150
 msg_046,mute,scam,"Scam-like content signals: otp_request, wallet_verification, credential_harvest. supported by prior recipient reactions.",0.88,message_0148;message_0147
-msg_042,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6279,message_0140;message_0139
+msg_042,notify,urgent,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6874,message_0140;message_0139
 msg_079,mute,scam,Scam-like content signals: otp_request. supported by prior recipient reactions.,0.6011,message_0173;message_0174
 msg_098,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6274,message_0054;message_0225;message_0226
-msg_037,mute,unknown,unknown content routed to mute from channel signals. supported by prior recipient reactions.,0.6499,message_0271;message_0030
-msg_007,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6252,message_0070;message_0069
+msg_037,notify,urgent,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6836,message_0001;message_0029;message_0043
+msg_007,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6252,message_0070;message_0069
 msg_085,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, young_account=0.14, young_domain=0.11. media was present but left uninterpreted offline.",0.72,none
-msg_001,mute,unknown,unknown content routed to mute from channel signals.,0.5926,none
-msg_021,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6735,message_0068;message_0098;message_0001
+msg_001,notify,urgent,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6684,message_0057;message_0240;message_0058
+msg_021,notify,payment,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6917,message_0068;message_0098;message_0001
 msg_028,mute,promotion,"Metadata risk signals: domain_mismatch=0.40, report_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.",0.5682,message_0034;message_0112;message_0111
 msg_012,mute,spam,Metadata risk signals: forwarded_count=0.23. supported by prior recipient reactions.,0.6456,message_0247;message_0079;message_0080
 msg_064,mute,payment,Metadata risk signals: forwarded_count=0.05. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5066,message_0087;message_0183;message_0201
 msg_103,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6311,message_0382;message_0231;message_0065
 msg_031,digest,event,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5105,message_0249;message_0117;message_0118
-msg_057,notify,unknown,Group admin sent a high-priority update for this recipient. supported by prior recipient reactions.,0.6986,message_0059;message_0169;message_0003
-msg_087,mute,unknown,Recipient previously ignored a near-duplicate of this message. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.566,message_0203;message_0204;message_0223
-msg_067,mute,payment,payment content routed to mute from channel signals. supported by prior recipient reactions.,0.6474,message_0271;message_0030
+msg_057,notify,personal,Group admin sent a high-priority update for this recipient. supported by prior recipient reactions.,0.6986,message_0059;message_0169;message_0003
+msg_087,mute,personal,Recipient previously ignored a near-duplicate of this message. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.566,message_0203;message_0204;message_0223
+msg_067,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6042,message_0068;message_0098;message_0029
 msg_039,notify,event,Group admin sent a high-priority update for this recipient. supported by prior recipient reactions.,0.8525,message_0051;message_0255;message_0403
-msg_082,mute,unknown,unknown content routed to mute from channel signals. media was present but left uninterpreted offline.,0.4714,none
-msg_066,mute,promotion,"Metadata risk signals: report_count=0.10, forwarded_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.",0.5106,message_0402;message_0257;message_0188
+msg_082,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.4773,message_0218;message_0397
+msg_066,mute,promotion,"Metadata risk signals: report_count=0.10, forwarded_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.",0.4984,message_0402;message_0257;message_0188
 msg_049,digest,business_update,Metadata risk signals: report_count=0.14. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.4992,message_0154;message_0291;message_0153
 msg_015,mute,scam,"Scam-like content signals: otp_request, credential_harvest. supported by prior recipient reactions.",0.6436,message_0173;message_0174
-msg_051,mute,promotion,"Metadata risk signals: report_count=0.09, forwarded_count=0.07. supported by prior recipient reactions.",0.6288,message_0257;message_0402;message_0103
-msg_097,digest,urgent,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.694,message_0054;message_0225;message_0359
+msg_051,mute,promotion,"Metadata risk signals: report_count=0.09, forwarded_count=0.07. supported by prior recipient reactions.",0.6202,message_0257;message_0402;message_0103
+msg_097,digest,urgent,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.682,message_0054;message_0225;message_0359
 msg_089,digest,personal,Useful for later review but not interrupt-worthy given current signals.,0.53,none
 msg_053,mute,spam,Metadata risk signals: forwarded_count=0.15. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.487,message_0411
-msg_059,mute,unknown,unknown content routed to mute from channel signals. supported by prior recipient reactions.,0.637,message_0174;message_0173
-msg_024,mute,promotion,"Metadata risk signals: report_count=0.09, forwarded_count=0.07. supported by prior recipient reactions.",0.6288,message_0257;message_0402;message_0103
+msg_059,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.5922,message_0053;message_0023;message_0045
+msg_024,mute,promotion,"Metadata risk signals: report_count=0.09, forwarded_count=0.07. supported by prior recipient reactions.",0.6202,message_0257;message_0402;message_0103
 msg_072,mute,scam,"Scam-like content signals: otp_request, wallet_verification. supported by prior recipient reactions.",0.6433,message_0173;message_0174
 msg_036,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.11, young_domain=0.13. supported by prior recipient reactions.",0.89,message_0283;message_0127;message_0128
 msg_076,mute,scam,"Metadata risk signals: domain_mismatch=0.40, report_count=0.35, forwarded_count=0.05, young_account=0.13, young_domain=0.12. supported by prior recipient reactions.",0.89,message_0208;message_0160;message_0207
-msg_055,mute,unknown,unknown content routed to mute from channel signals.,0.598,none
+msg_055,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6048,message_0166;message_0165
 msg_102,mute,personal,personal content routed to mute from channel signals.,0.5638,none
-msg_080,mute,unknown,unknown content routed to mute from channel signals. supported by prior recipient reactions.,0.6498,message_0271;message_0030
+msg_080,notify,urgent,Group admin sent a time-sensitive update that should interrupt now. supported by prior recipient reactions.,0.6835,message_0130;message_0142;message_0180
 msg_093,mute,scam,Scam-like content signals: otp_request.,0.5398,none
-msg_034,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.612,message_0013;message_0077;message_0123
+msg_034,digest,urgent,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.4717,message_0167;message_0168
 msg_035,digest,business_update,Metadata risk signals: report_count=0.09. supported by prior recipient reactions.,0.641,message_0281;message_0125;message_0126
 msg_101,mute,personal,personal content routed to mute from channel signals. supported by prior recipient reactions.,0.608,message_0229;message_0370;message_0268
-msg_041,mute,business_update,"Metadata risk signals: domain_mismatch=0.40, report_count=0.12.",0.5625,none
+msg_041,digest,business_update,"Metadata risk signals: domain_mismatch=0.40, report_count=0.12. supported by prior recipient reactions.",0.5417,message_0137;message_0138
 msg_011,mute,spam,Metadata risk signals: forwarded_count=0.20. supported by prior recipient reactions.,0.6448,message_0014;message_0077;message_0123
-msg_110,mute,urgent,Metadata risk signals: forwarded_count=0.03. supported by prior recipient reactions.,0.6208,message_0238;message_0381
+msg_110,mute,urgent,Metadata risk signals: forwarded_count=0.03. supported by prior recipient reactions.,0.6103,message_0238;message_0381
 msg_095,mute,scam,Deterministic injection scanner matched mark_as_action in message_text.,0.8,none
 msg_074,mute,spam,Metadata risk signals: forwarded_count=0.17. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.4864,message_0203;message_0204;message_0358
-msg_073,mute,spam,Metadata risk signals: forwarded_count=0.23. supported by prior recipient reactions.,0.6163,message_0088;message_0184;message_0202
-msg_054,mute,unknown,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6335,message_0163;message_0164
-msg_068,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6142,message_0191;message_0192
+msg_073,mute,spam,Metadata risk signals: forwarded_count=0.23. supported by prior recipient reactions.,0.6128,message_0088;message_0184;message_0202
+msg_054,mute,personal,Recipient usually dismisses messages on this conversation. supported by prior recipient reactions.,0.6335,message_0163;message_0164
+msg_068,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.6142,message_0191;message_0192
 msg_100,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.66,message_0227;message_0362;message_0228
 msg_062,mute,spam,Metadata risk signals: forwarded_count=0.17. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.524,message_0271;message_0030
-msg_096,mute,personal,personal content routed to mute from channel signals.,0.5615,none
-msg_043,mute,spam,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6214,message_0030;message_0271
+msg_096,digest,personal,Useful for later review but not interrupt-worthy given current signals.,0.5188,none
+msg_043,digest,urgent,Metadata risk signals: forwarded_count=0.25. supported by prior recipient reactions.,0.6564,message_0067;message_0097;message_0129
 msg_077,digest,event,Useful update deferred because it arrived during quiet hours. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.4963,message_0403;message_0256;message_0051
-msg_081,digest,unknown,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5079,message_0217
-msg_025,mute,business_update,Metadata risk signals: report_count=0.05.,0.5879,none
+msg_081,digest,personal,Useful for later review based on this recipient's channel history. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5079,message_0217
+msg_025,digest,urgent,Metadata risk signals: report_count=0.05. supported by prior recipient reactions.,0.7053,message_0004;message_0239;message_0105
 msg_084,mute,business_update,Metadata risk signals: report_count=0.07. supported by prior recipient reactions. media was present but left uninterpreted offline.,0.5497,message_0220
-msg_022,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.613,message_0150;message_0149
+msg_022,digest,payment,Useful for later review based on this recipient's channel history. supported by prior recipient reactions.,0.609,message_0150;message_0149

@@ -2,8 +2,13 @@
 
 Consumes normalized content, deterministic features, and ranked evidence
 summaries only. Returns validated action/type/reason/confidence/evidence.
-An optional model path (temperature 0) is post-clamped by the safety gate;
-the deterministic fallback is used when no API key is configured.
+
+Model path (temperature 0) emits enum-constrained JSON. Hard mute, the
+notify ceiling, and the mention override from ``priority.py`` are applied
+as a post-hoc clamp on that JSON — never re-derived by the prompt — so the
+model cannot talk past a ceiling already decided in code.
+
+Deterministic fallback is used when no model provider is available.
 """
 
 from __future__ import annotations
@@ -12,6 +17,8 @@ import json
 import logging
 import os
 import re
+import urllib.error
+import urllib.request
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping, Optional, Sequence
 
@@ -31,9 +38,36 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 ENV_API_KEY = "OPENAI_API_KEY"
-ENV_DECISION_PROVIDER = "ROUTER_DECISION_PROVIDER"  # auto | offline | openai
+ENV_DECISION_PROVIDER = "ROUTER_DECISION_PROVIDER"  # auto | offline | openai | ollama
 ENV_DECISION_MODEL = "ROUTER_DECISION_MODEL"
+ENV_OLLAMA_BASE_URL = "OLLAMA_BASE_URL"
 DEFAULT_DECISION_MODEL = "gpt-4o-mini"
+DEFAULT_OLLAMA_MODEL = "llama3.2"
+DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+
+# OpenAI structured-output schema: action/message_type locked to enums.
+DECISION_JSON_SCHEMA: dict[str, Any] = {
+    "name": "routing_decision",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "action": {"type": "string", "enum": list(ACTIONS)},
+            "message_type": {"type": "string", "enum": list(MESSAGE_TYPES)},
+            "reason": {"type": "string"},
+            "confidence": {"type": "number"},
+            "evidence_message_ids": {"type": "string"},
+        },
+        "required": [
+            "action",
+            "message_type",
+            "reason",
+            "confidence",
+            "evidence_message_ids",
+        ],
+    },
+}
 
 ACTION_RANK = {"mute": 0, "digest": 1, "notify": 2}
 
@@ -119,6 +153,9 @@ class DecisionResult:
     evidence_message_ids: str
     source: str = "fallback"
     clamped_by_safety: bool = False
+    # Present when a model path ran: raw JSON before post-hoc clamps.
+    raw_model_json: Optional[dict[str, Any]] = None
+    model_proposed_action: Optional[str] = None
 
     def to_prediction(self, message_id: str) -> Prediction:
         return Prediction(
@@ -169,10 +206,16 @@ def apply_safety_constraints(
     *,
     forced_mute: bool,
     notify_ceiling_active: bool,
+    mention_override_active: bool = False,
 ) -> tuple[str, bool]:
-    """Clamp action so the model cannot weaken hard mute or notify ceiling.
+    """Post-hoc clamp using flags already decided in ``priority.py`` / safety.
 
-    Returns (action, clamped).
+    Precedence mirrors ``decide_action``:
+    1. hard mute → mute
+    2. notify ceiling → cap notify at digest
+    3. mention/admin-ops override → force notify when armed and ceiling off
+
+    These gates are never re-derived by the prompt. Returns (action, clamped).
     """
     action = proposed_action if proposed_action in ACTIONS else "digest"
     clamped = False
@@ -181,7 +224,11 @@ def apply_safety_constraints(
             clamped = True
         return "mute", clamped
     if notify_ceiling_active and action == "notify":
-        return "digest", True
+        action = "digest"
+        clamped = True
+    if mention_override_active and not notify_ceiling_active and action != "notify":
+        action = "notify"
+        clamped = True
     return action, clamped
 
 
@@ -347,6 +394,7 @@ def deterministic_decide(ctx: DecisionContext) -> DecisionResult:
         ctx.priority.action,
         forced_mute=ctx.risk.forced_mute,
         notify_ceiling_active=ctx.priority.technical_ceiling_active,
+        mention_override_active=ctx.priority.mention_override_active,
     )
     # Priority already applied hard mute / ceiling; keep safer of the two.
     action = safer_action(action, ctx.priority.action)
@@ -422,6 +470,12 @@ def deterministic_decide(ctx: DecisionContext) -> DecisionResult:
 
 
 def _context_payload(ctx: DecisionContext) -> dict[str, Any]:
+    """Payload for the model: content + signals + evidence only.
+
+    Deliberately omits ``forced_mute`` / ``notify_ceiling_active`` /
+    ``mention_override_active`` / ``priority_action``. Those gates are applied
+    post-hoc in ``apply_safety_constraints`` so the model cannot negotiate them.
+    """
     features = ctx.features
     return {
         "message_id": ctx.message.message_id,
@@ -459,16 +513,18 @@ def _context_payload(ctx: DecisionContext) -> dict[str, Any]:
             "channel_open_rate": features.channel_open_rate,
             "channel_dismiss_rate": features.channel_dismiss_rate,
         },
-        "safety": {
-            "risk_score": ctx.risk.risk_score,
-            "forced_mute": ctx.risk.forced_mute,
-            "scam_signals": list(ctx.risk.scam_signals),
-            "notify_ceiling_active": ctx.priority.technical_ceiling_active,
-            "priority_action": ctx.priority.action,
+        "priority_signals": {
+            "confirmed_risk": ctx.risk.risk_score,
             "priority_score": ctx.priority.priority,
+            "scam_signals": list(ctx.risk.scam_signals),
+            "risk_reasons": list(ctx.risk.reasons),
         },
         "allowed_evidence_ids": list(ctx.allowed_evidence_ids) or ["none"],
         "evidence_summaries": [asdict(item) for item in ctx.evidence_summaries],
+        "note": (
+            "Hard mute, notify ceiling, and mention override are enforced in "
+            "code after this response. Propose contextual action/type/reason only."
+        ),
     }
 
 
@@ -503,38 +559,25 @@ def validate_decision_payload(
     }
 
 
-def _openai_decide(ctx: DecisionContext, *, model: str) -> Optional[DecisionResult]:
-    api_key = os.environ.get(ENV_API_KEY, "")
-    if not api_key:
-        return None
-    try:
-        from openai import OpenAI
-    except ImportError:
-        logger.warning("openai package missing; using deterministic decision fallback")
-        return None
-
-    client = OpenAI(api_key=api_key)
-    payload = json.dumps(_context_payload(ctx), ensure_ascii=True, sort_keys=True)
-    response = client.chat.completions.create(
-        model=model,
-        temperature=0,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": prompts.DECISION_SYSTEM_PROMPT},
-            {"role": "user", "content": prompts.decision_user_prompt(payload)},
-        ],
-    )
-    raw = _extract_json_object(response.choices[0].message.content or "")
+def _finalize_model_decision(
+    ctx: DecisionContext,
+    *,
+    raw: Mapping[str, Any],
+    source: str,
+) -> Optional[DecisionResult]:
+    """Validate model JSON, then apply priority.py safety post-hoc."""
     cleaned = validate_decision_payload(
         raw, allowed_evidence_ids=ctx.allowed_evidence_ids
     )
     if cleaned is None:
         return None
 
+    proposed = cleaned["action"]
     action, clamped = apply_safety_constraints(
-        cleaned["action"],
+        proposed,
         forced_mute=ctx.risk.forced_mute,
         notify_ceiling_active=ctx.priority.technical_ceiling_active,
+        mention_override_active=ctx.priority.mention_override_active,
     )
     message_type = cleaned["message_type"]
     if ctx.risk.forced_mute and message_type not in {"scam", "spam"}:
@@ -547,29 +590,31 @@ def _openai_decide(ctx: DecisionContext, *, model: str) -> Optional[DecisionResu
             forwarded_count=ctx.message.forwarded_count,
             injection_hit=bool(ctx.risk.injection_hits),
         )
-    evidence = cleaned["evidence_message_ids"]
-    if action != cleaned["action"]:
-        # Re-filter is already subset; keep unless empty after clamp to mute.
-        evidence = filter_evidence_ids(evidence, ctx.allowed_evidence_ids)
+    evidence = filter_evidence_ids(
+        cleaned["evidence_message_ids"], ctx.allowed_evidence_ids
+    )
 
     confidence = cleaned["confidence"]
-    if clamped or action != cleaned["action"]:
-        confidence = min(confidence, calibrate_confidence(
-            action=action,
-            raw_action=ctx.priority.raw_action,
-            priority=ctx.priority.priority,
-            forced_mute=ctx.risk.forced_mute,
-            media_uninterpreted=ctx.features.media_uninterpreted,
-            risk_score=ctx.risk.risk_score,
-            evidence=evidence,
-            features=ctx.features,
-            clamped=True,
-        ))
+    if clamped or action != proposed:
+        confidence = min(
+            confidence,
+            calibrate_confidence(
+                action=action,
+                raw_action=ctx.priority.raw_action,
+                priority=ctx.priority.priority,
+                forced_mute=ctx.risk.forced_mute,
+                media_uninterpreted=ctx.features.media_uninterpreted,
+                risk_score=ctx.risk.risk_score,
+                evidence=evidence,
+                features=ctx.features,
+                clamped=True,
+            ),
+        )
 
     reason = cleaned["reason"]
-    if clamped and "safety" not in reason.lower() and "mute" not in reason.lower():
+    if clamped and action != proposed:
         reason = (
-            f"{reason.rstrip('.')} Safety gate forced a safer {action} outcome."
+            f"{reason.rstrip('.')} Post-hoc safety clamped {proposed} → {action}."
         )[:280]
 
     return DecisionResult(
@@ -578,28 +623,256 @@ def _openai_decide(ctx: DecisionContext, *, model: str) -> Optional[DecisionResu
         reason=reason,
         confidence=round(float(confidence), 4),
         evidence_message_ids=evidence,
-        source="openai",
-        clamped_by_safety=clamped or action != cleaned["action"],
+        source=source,
+        clamped_by_safety=clamped or action != proposed,
+        raw_model_json=dict(raw),
+        model_proposed_action=proposed,
     )
+
+
+def _chat_completion_json(
+    *,
+    base_url: Optional[str],
+    api_key: str,
+    model: str,
+    messages: list[dict[str, str]],
+    use_strict_schema: bool,
+) -> str:
+    """Temperature-0 chat completion returning JSON text."""
+    from openai import OpenAI
+
+    kwargs: dict[str, Any] = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    client = OpenAI(**kwargs)
+
+    create_kwargs: dict[str, Any] = {
+        "model": model,
+        "temperature": 0,
+        "messages": messages,
+    }
+    if use_strict_schema:
+        create_kwargs["response_format"] = {
+            "type": "json_schema",
+            "json_schema": DECISION_JSON_SCHEMA,
+        }
+    else:
+        create_kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client.chat.completions.create(**create_kwargs)
+    except Exception:
+        # Older servers / local models may reject json_schema; fall back.
+        if use_strict_schema:
+            create_kwargs["response_format"] = {"type": "json_object"}
+            response = client.chat.completions.create(**create_kwargs)
+        else:
+            raise
+    return response.choices[0].message.content or ""
+
+
+def _ollama_reachable(base_url: str) -> bool:
+    try:
+        with urllib.request.urlopen(f"{base_url.rstrip('/')}/api/tags", timeout=1.5) as resp:
+            return 200 <= getattr(resp, "status", 200) < 300
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return False
+
+
+def _model_decide(
+    ctx: DecisionContext,
+    *,
+    provider: str,
+    model: str,
+) -> Optional[DecisionResult]:
+    """Call a temperature-0 structured model; clamp with priority.py post-hoc."""
+    try:
+        from openai import OpenAI  # noqa: F401 — import check
+    except ImportError:
+        logger.warning("openai package missing; using deterministic decision fallback")
+        return None
+
+    payload = json.dumps(_context_payload(ctx), ensure_ascii=True, sort_keys=True)
+    messages = [
+        {"role": "system", "content": prompts.DECISION_SYSTEM_PROMPT},
+        {"role": "user", "content": prompts.decision_user_prompt(payload)},
+    ]
+
+    if provider == "openai":
+        api_key = os.environ.get(ENV_API_KEY, "")
+        if not api_key:
+            return None
+        raw_text = _chat_completion_json(
+            base_url=None,
+            api_key=api_key,
+            model=model,
+            messages=messages,
+            use_strict_schema=True,
+        )
+        source = "openai"
+    elif provider == "ollama":
+        base = os.environ.get(ENV_OLLAMA_BASE_URL, DEFAULT_OLLAMA_BASE_URL).rstrip("/")
+        raw_text = _chat_completion_json(
+            base_url=f"{base}/v1",
+            api_key=os.environ.get(ENV_API_KEY) or "ollama",
+            model=model,
+            messages=messages,
+            use_strict_schema=False,
+        )
+        source = "ollama"
+    else:
+        return None
+
+    raw = _extract_json_object(raw_text)
+    return _finalize_model_decision(ctx, raw=raw, source=source)
+
+
+def _openai_decide(ctx: DecisionContext, *, model: str) -> Optional[DecisionResult]:
+    """Backward-compatible OpenAI entry point used by tests."""
+    return _model_decide(ctx, provider="openai", model=model)
+
+
+def _resolve_provider(explicit: Optional[str] = None) -> str:
+    mode = (explicit or os.environ.get(ENV_DECISION_PROVIDER) or "auto").strip().lower()
+    if mode == "auto":
+        # Production auto stays openai-or-offline so dataset routing never
+        # silently fans out to a local LLM. Opt into ollama explicitly.
+        if os.environ.get(ENV_API_KEY):
+            return "openai"
+        return "offline"
+    return mode
 
 
 def decide(ctx: DecisionContext, *, provider: Optional[str] = None) -> DecisionResult:
     """Produce a validated decision; always falls back deterministically."""
-    mode = (provider or os.environ.get(ENV_DECISION_PROVIDER) or "auto").strip().lower()
-    if mode == "auto":
-        mode = "openai" if os.environ.get(ENV_API_KEY) else "offline"
+    mode = _resolve_provider(provider)
 
-    if mode == "openai":
-        model = os.environ.get(ENV_DECISION_MODEL, DEFAULT_DECISION_MODEL)
+    if mode in {"openai", "ollama"}:
+        if mode == "openai":
+            model = os.environ.get(ENV_DECISION_MODEL, DEFAULT_DECISION_MODEL)
+        else:
+            model = os.environ.get(ENV_DECISION_MODEL, DEFAULT_OLLAMA_MODEL)
         try:
-            result = _openai_decide(ctx, model=model)
+            if mode == "openai":
+                result = _openai_decide(ctx, model=model)
+            else:
+                result = _model_decide(ctx, provider=mode, model=model)
             if result is not None:
                 return result
-            logger.warning("model decision invalid/unavailable; using deterministic fallback")
+            logger.warning(
+                "model decision invalid/unavailable (%s); using deterministic fallback",
+                mode,
+            )
         except Exception as exc:  # noqa: BLE001 - keep router runnable
             logger.warning(
-                "model decision failed (%s); using deterministic fallback",
+                "model decision failed (%s: %s); using deterministic fallback",
+                mode,
                 type(exc).__name__,
             )
 
     return deterministic_decide(ctx)
+
+
+def build_context_for_message(
+    dataset: Any,
+    message: MessageRecord,
+    *,
+    interpreter: Any = None,
+) -> DecisionContext:
+    """Assemble a DecisionContext for one real message (demo / evaluation)."""
+    from .baseline import _evidence_summaries
+    from .evidence import retrieve_evidence
+    from .features import compute_features
+    from .media import build_media_interpreter, interpret_message
+    from .priority import DEFAULT_WEIGHTS, PriorityTerms, decide_action
+    from .safety import assess_risk
+
+    media = interpreter or build_media_interpreter(provider="offline", cache=False)
+    content, perception = interpret_message(dataset, message, media)
+    features = compute_features(dataset, message, content)
+    risk = assess_risk(
+        content,
+        domain_mismatch=features.domain_mismatch,
+        user_reports_30d=features.user_reports_30d,
+        forwarded_count=message.forwarded_count,
+        account_age_days=features.account_age_days,
+        domain_age_days=features.domain_age_days,
+    )
+    terms = PriorityTerms(
+        urgency=features.urgency,
+        direct_mention=features.direct_mention,
+        sender_trust=features.sender_trust,
+        personal_relevance=features.personal_relevance,
+        positive_history=features.positive_history,
+        repetition=features.repetition,
+        low_engagement=features.low_engagement,
+        quiet_hour_cost=features.quiet_hour_cost,
+        confirmed_risk=risk.risk_score,
+        domain_mismatch=features.domain_mismatch,
+        credential_otp_or_payment_request=bool(
+            set(risk.scam_signals)
+            & {
+                "otp_request",
+                "credential_harvest",
+                "urgent_payment_link",
+                "wallet_verification",
+                "urgency_pressure",
+            }
+        ),
+        sender_is_group_admin=features.sender_is_group_admin,
+    )
+    priority = decide_action(
+        terms,
+        DEFAULT_WEIGHTS,
+        hard_blocked_by_safety=risk.forced_mute,
+    )
+    evidence = retrieve_evidence(dataset, message, priority.action, features)
+    allowed_ids = [] if evidence == "none" else evidence.split(";")
+    return DecisionContext(
+        message=message,
+        content=content,
+        features=features,
+        risk=risk,
+        priority=priority,
+        allowed_evidence_ids=allowed_ids,
+        evidence_summaries=_evidence_summaries(dataset, message, evidence),
+        media_source=perception.source,
+    )
+
+
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from router.data import load_dataset
+
+    message_id = sys.argv[1] if len(sys.argv) > 1 else "msg_027"
+    provider = sys.argv[2] if len(sys.argv) > 2 else None
+    ds = load_dataset(repo / "dataset")
+    msg = next(m for m in ds.messages if m.message_id == message_id)
+    ctx = build_context_for_message(ds, msg)
+    result = decide(ctx, provider=provider)
+
+    print(f"message_id={message_id}")
+    print(f"provider_resolved={_resolve_provider(provider)}")
+    print(f"confirmed_risk={ctx.risk.risk_score:.4f}")
+    print(f"forced_mute={ctx.risk.forced_mute}")
+    print(f"notify_ceiling_active={ctx.priority.technical_ceiling_active}")
+    print(f"mention_override_active={ctx.priority.mention_override_active}")
+    print(f"priority_action_pre_model={ctx.priority.action}")
+    print()
+    print("MODEL RAW JSON:")
+    print(json.dumps(result.raw_model_json, indent=2, ensure_ascii=False)
+          if result.raw_model_json is not None else "(no model output — fallback)")
+    print()
+    print("SIDE-BY-SIDE:")
+    print(f"  model_proposed_action = {result.model_proposed_action!r}")
+    print(f"  final_post_check_action = {result.action!r}")
+    print(f"  clamped_by_safety = {result.clamped_by_safety}")
+    print(f"  message_type = {result.message_type}")
+    print(f"  confidence = {result.confidence}")
+    print(f"  source = {result.source}")
+    print(f"  reason = {result.reason}")
+    print(f"  evidence = {result.evidence_message_ids}")

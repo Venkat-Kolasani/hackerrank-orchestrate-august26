@@ -124,13 +124,13 @@ def test_cache_keyed_by_content_hash(tmp_path, dataset):
     assert payload["ocr_text"] == "Sale 50% OFF"
 
 
-def test_build_media_interpreter_defaults_offline_without_key(monkeypatch):
+def test_build_media_interpreter_defaults_without_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("ROUTER_MEDIA_PROVIDER", "auto")
     monkeypatch.setenv("ROUTER_MEDIA_CACHE_DISABLE", "1")
     interpreter = build_media_interpreter()
-    # Without cache wrapper when disabled.
-    assert interpreter.name == "offline"
+    # Without an API key, auto picks local tools when present, else offline.
+    assert interpreter.name in {"offline", "local"}
 
 
 def test_build_forces_offline_provider(monkeypatch):
@@ -139,6 +139,16 @@ def test_build_forces_offline_provider(monkeypatch):
     monkeypatch.setenv("ROUTER_MEDIA_CACHE_DISABLE", "1")
     interpreter = build_media_interpreter()
     assert isinstance(interpreter, OfflineMediaInterpreter)
+
+
+def test_build_local_provider(monkeypatch):
+    monkeypatch.setenv("ROUTER_MEDIA_PROVIDER", "local")
+    monkeypatch.setenv("ROUTER_MEDIA_CACHE_DISABLE", "1")
+    from router.media import LocalMediaInterpreter
+
+    interpreter = build_media_interpreter(provider="local", cache=False)
+    assert isinstance(interpreter, LocalMediaInterpreter)
+    assert interpreter.name == "local"
 
 
 def test_interpreted_content_feeds_summary_channels():

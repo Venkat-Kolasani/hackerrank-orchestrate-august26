@@ -2,6 +2,11 @@
 
 Returns structured ``ContentSummary`` fields only — never routing decisions.
 All media-derived text is untrusted data for later safety scanning.
+
+Providers:
+- ``openai`` — vision + Whisper API (needs ``OPENAI_API_KEY``)
+- ``local`` — Tesseract OCR + local Whisper ASR (needs system tools)
+- ``offline`` — no OCR/ASR; leaves channels empty; never fabricates
 """
 
 from __future__ import annotations
@@ -12,6 +17,7 @@ import json
 import logging
 import mimetypes
 import os
+import shutil
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
@@ -24,20 +30,24 @@ from .types import ContentSummary, MessageRecord
 
 logger = logging.getLogger(__name__)
 
-# Bump when prompt/schema changes so stale cache entries are ignored.
-CACHE_VERSION = "media-v1"
+# Bump when prompt/schema or local extractor changes so stale cache is ignored.
+CACHE_VERSION = "media-v2"
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache" / "media"
 
 # Env configuration (documented in code/README.md)
 ENV_API_KEY = "OPENAI_API_KEY"
-ENV_PROVIDER = "ROUTER_MEDIA_PROVIDER"  # auto | offline | openai
+ENV_PROVIDER = "ROUTER_MEDIA_PROVIDER"  # auto | offline | openai | local
 ENV_IMAGE_MODEL = "ROUTER_IMAGE_MODEL"
 ENV_ASR_MODEL = "ROUTER_ASR_MODEL"
+ENV_LOCAL_WHISPER_MODEL = "ROUTER_LOCAL_WHISPER_MODEL"
 ENV_CACHE_DIR = "ROUTER_MEDIA_CACHE_DIR"
 ENV_DISABLE_CACHE = "ROUTER_MEDIA_CACHE_DISABLE"
+ENV_TESSERACT_CMD = "TESSERACT_CMD"
 
 DEFAULT_IMAGE_MODEL = "gpt-4o-mini"
 DEFAULT_ASR_MODEL = "whisper-1"
+DEFAULT_LOCAL_WHISPER_MODEL = "base"
+
 
 
 @dataclass(frozen=True)
@@ -137,6 +147,191 @@ class OfflineMediaInterpreter(MediaInterpreter):
             interpreted=False,
             warning=msg,
             source="offline",
+        )
+
+
+def _resolve_tesseract_cmd() -> Optional[str]:
+    explicit = (os.environ.get(ENV_TESSERACT_CMD) or "").strip()
+    if explicit and Path(explicit).is_file():
+        return explicit
+    found = shutil.which("tesseract")
+    if found:
+        return found
+    for candidate in (
+        "/opt/homebrew/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/usr/bin/tesseract",
+    ):
+        if Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def local_tools_available() -> dict[str, bool]:
+    """Whether local OCR / ASR dependencies are importable and on PATH."""
+    tesseract = _resolve_tesseract_cmd() is not None
+    ffmpeg = shutil.which("ffmpeg") is not None or any(
+        Path(p).is_file()
+        for p in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg")
+    )
+    try:
+        import PIL  # noqa: F401
+        import pytesseract  # noqa: F401
+
+        pillow_ok = True
+    except ImportError:
+        pillow_ok = False
+    try:
+        import whisper  # noqa: F401
+
+        whisper_ok = True
+    except ImportError:
+        whisper_ok = False
+    return {
+        "tesseract": tesseract,
+        "pillow": pillow_ok,
+        "ffmpeg": ffmpeg,
+        "whisper": whisper_ok,
+        "ocr": bool(tesseract and pillow_ok),
+        "asr": bool(whisper_ok and ffmpeg),
+    }
+
+
+class LocalMediaInterpreter(MediaInterpreter):
+    """Local Tesseract OCR + Whisper ASR. Never fabricates missing text."""
+
+    name = "local"
+
+    def __init__(self, *, whisper_model: Optional[str] = None) -> None:
+        self.whisper_model_name = (
+            whisper_model
+            or os.environ.get(ENV_LOCAL_WHISPER_MODEL)
+            or DEFAULT_LOCAL_WHISPER_MODEL
+        )
+        self._whisper_model = None
+        self._warned: set[str] = set()
+        cmd = _resolve_tesseract_cmd()
+        if cmd:
+            try:
+                import pytesseract
+
+                pytesseract.pytesseract.tesseract_cmd = cmd
+            except ImportError:
+                pass
+
+    def _get_whisper(self):
+        if self._whisper_model is not None:
+            return self._whisper_model
+        import whisper
+
+        self._whisper_model = whisper.load_model(self.whisper_model_name)
+        return self._whisper_model
+
+    def interpret(
+        self,
+        *,
+        media_type: str,
+        media_id: str,
+        file_path: Optional[Path],
+        available: bool,
+        accompanying_text: str,
+    ) -> MediaPerceptionResult:
+        del accompanying_text
+        if media_type not in {"image", "voice"}:
+            return MediaPerceptionResult(interpreted=True, source="local")
+        if not available or file_path is None or not file_path.is_file():
+            msg = (
+                f"media {media_id} ({media_type}) unavailable; "
+                "local interpreter leaving OCR/ASR empty"
+            )
+            if media_id not in self._warned:
+                self._warned.add(media_id)
+                _warn(msg)
+            return MediaPerceptionResult(
+                interpreted=False,
+                warning=msg,
+                source="missing",
+            )
+        try:
+            if media_type == "image":
+                return self._interpret_image(media_id=media_id, file_path=file_path)
+            return self._interpret_voice(media_id=media_id, file_path=file_path)
+        except Exception as exc:  # noqa: BLE001 - keep router runnable
+            msg = (
+                f"local media interpretation failed for {media_id}: "
+                f"{type(exc).__name__}; leaving OCR/ASR empty"
+            )
+            _warn(msg)
+            return MediaPerceptionResult(
+                interpreted=False,
+                warning=msg,
+                source="local",
+            )
+
+    def _interpret_image(
+        self, *, media_id: str, file_path: Path
+    ) -> MediaPerceptionResult:
+        tools = local_tools_available()
+        if not tools["ocr"]:
+            msg = (
+                f"local OCR unavailable for {media_id} "
+                "(need tesseract + pillow/pytesseract)"
+            )
+            _warn(msg)
+            return MediaPerceptionResult(
+                interpreted=False, warning=msg, source="local"
+            )
+        from PIL import Image
+        import pytesseract
+
+        with Image.open(file_path) as image:
+            # Convert to RGB so unusual modes still OCR.
+            rgb = image.convert("RGB")
+            ocr = pytesseract.image_to_string(rgb).strip()
+        caption = ""
+        if ocr:
+            first = next(
+                (line.strip() for line in ocr.splitlines() if line.strip()),
+                "",
+            )
+            caption = first[:120]
+        return MediaPerceptionResult(
+            ocr_text=ocr,
+            caption=caption,
+            interpreted=bool(ocr),
+            source="local",
+        )
+
+    def _interpret_voice(
+        self, *, media_id: str, file_path: Path
+    ) -> MediaPerceptionResult:
+        tools = local_tools_available()
+        if not tools["asr"]:
+            msg = (
+                f"local ASR unavailable for {media_id} "
+                "(need openai-whisper + ffmpeg)"
+            )
+            _warn(msg)
+            return MediaPerceptionResult(
+                interpreted=False, warning=msg, source="local"
+            )
+        # Ensure brew ffmpeg is visible to whisper's subprocess.
+        homebrew = "/opt/homebrew/bin"
+        if Path(homebrew).is_dir() and homebrew not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = homebrew + os.pathsep + os.environ.get("PATH", "")
+
+        model = self._get_whisper()
+        result = model.transcribe(
+            str(file_path),
+            temperature=0.0,
+            fp16=False,
+            verbose=False,
+        )
+        transcript = str(result.get("text") or "").strip()
+        return MediaPerceptionResult(
+            asr_transcript=transcript,
+            interpreted=bool(transcript),
+            source="local",
         )
 
 
@@ -433,9 +628,9 @@ class CachedMediaInterpreter(MediaInterpreter):
 
 
 def provider_from_env() -> str:
-    """Return configured provider: auto | offline | openai."""
+    """Return configured provider: auto | offline | openai | local."""
     raw = (os.environ.get(ENV_PROVIDER) or "auto").strip().lower()
-    if raw in {"auto", "offline", "openai"}:
+    if raw in {"auto", "offline", "openai", "local"}:
         return raw
     return "auto"
 
@@ -449,11 +644,16 @@ def build_media_interpreter(
     """Factory used by the production router.
 
     Default ``auto`` selects OpenAI when ``OPENAI_API_KEY`` is set, otherwise
-    the offline interpreter. Cache is on unless ``ROUTER_MEDIA_CACHE_DISABLE=1``.
+    ``local`` when OCR/ASR tools are available, otherwise the offline
+    interpreter. Cache is on unless ``ROUTER_MEDIA_CACHE_DISABLE=1``.
     """
     mode = (provider or provider_from_env()).strip().lower()
     if mode == "auto":
-        mode = "openai" if os.environ.get(ENV_API_KEY) else "offline"
+        if os.environ.get(ENV_API_KEY):
+            mode = "openai"
+        else:
+            tools = local_tools_available()
+            mode = "local" if (tools["ocr"] or tools["asr"]) else "offline"
 
     if mode == "openai":
         if not os.environ.get(ENV_API_KEY):
@@ -463,6 +663,8 @@ def build_media_interpreter(
             inner: MediaInterpreter = OfflineMediaInterpreter()
         else:
             inner = ApiMediaInterpreter()
+    elif mode == "local":
+        inner = LocalMediaInterpreter()
     else:
         inner = OfflineMediaInterpreter()
 
@@ -507,3 +709,100 @@ def interpret_message(
         accompanying_text=message.message_text or "",
     )
     return result.apply(base), result
+
+
+def interpret_all_media(
+    dataset: Dataset,
+    interpreter: MediaInterpreter,
+) -> list[dict]:
+    """Run the interpreter on every images.csv / voice_notes.csv entry."""
+    rows: list[dict] = []
+    for media_id, ref in sorted(dataset.images.items()):
+        path = Path(ref.absolute_path) if ref.absolute_path else None
+        result = interpreter.interpret(
+            media_type="image",
+            media_id=media_id,
+            file_path=path,
+            available=ref.available,
+            accompanying_text="",
+        )
+        summary = result.apply(
+            ContentSummary(media_type="image", media_id=media_id)
+        )
+        rows.append(
+            {
+                "media_id": media_id,
+                "media_type": "image",
+                "file_path": ref.file_path,
+                "available": ref.available,
+                "source": result.source,
+                "interpreted": result.interpreted,
+                "warning": result.warning,
+                "content_summary": {
+                    "message_text": summary.message_text,
+                    "ocr_text": summary.ocr_text,
+                    "asr_transcript": summary.asr_transcript,
+                    "caption": summary.caption,
+                    "media_type": summary.media_type,
+                    "media_id": summary.media_id,
+                },
+            }
+        )
+    for media_id, ref in sorted(dataset.voice_notes.items()):
+        path = Path(ref.absolute_path) if ref.absolute_path else None
+        result = interpreter.interpret(
+            media_type="voice",
+            media_id=media_id,
+            file_path=path,
+            available=ref.available,
+            accompanying_text="",
+        )
+        summary = result.apply(
+            ContentSummary(media_type="voice", media_id=media_id)
+        )
+        rows.append(
+            {
+                "media_id": media_id,
+                "media_type": "voice",
+                "file_path": ref.file_path,
+                "available": ref.available,
+                "source": result.source,
+                "interpreted": result.interpreted,
+                "warning": result.warning,
+                "content_summary": {
+                    "message_text": summary.message_text,
+                    "ocr_text": summary.ocr_text,
+                    "asr_transcript": summary.asr_transcript,
+                    "caption": summary.caption,
+                    "media_type": summary.media_type,
+                    "media_id": summary.media_id,
+                },
+            }
+        )
+    return rows
+
+
+if __name__ == "__main__":
+    import sys
+
+    repo = Path(__file__).resolve().parents[2]
+    # Prefer brew tools on PATH for whisper/ffmpeg/tesseract.
+    homebrew = "/opt/homebrew/bin"
+    if Path(homebrew).is_dir():
+        os.environ["PATH"] = homebrew + os.pathsep + os.environ.get("PATH", "")
+
+    from router.data import load_dataset
+
+    provider = sys.argv[1] if len(sys.argv) > 1 else "local"
+    out_path = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    ds = load_dataset(repo / "dataset")
+    interp = build_media_interpreter(provider=provider, cache=True)
+    print(f"provider={provider} interpreter={interp.name}", file=sys.stderr)
+    print(f"local_tools={local_tools_available()}", file=sys.stderr)
+    rows = interpret_all_media(ds, interp)
+    text = json.dumps(rows, indent=2, ensure_ascii=False)
+    if out_path:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(text + "\n", encoding="utf-8")
+        print(f"wrote {out_path} ({len(rows)} media)", file=sys.stderr)
+    print(text)

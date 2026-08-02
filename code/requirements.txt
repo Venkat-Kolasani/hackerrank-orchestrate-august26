@@ -5,4 +5,9 @@
 # Optional multimodal / decision provider:
 #   pip install "openai>=1.40.0"
 #
+# Optional local MediaInterpreter (Tesseract OCR + Whisper ASR):
+#   brew install tesseract ffmpeg
+#   pip install pillow pytesseract openai-whisper
+#   ROUTER_MEDIA_PROVIDER=local
+#
 # See README.md for environment variable configuration.

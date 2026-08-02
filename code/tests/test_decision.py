@@ -94,6 +94,7 @@ def test_safety_cannot_weaken_hard_mute():
         "notify",
         forced_mute=True,
         notify_ceiling_active=False,
+        mention_override_active=True,  # even with mention armed, mute wins
     )
     assert action == "mute"
     assert clamped is True
@@ -104,9 +105,47 @@ def test_notify_ceiling_clamps_model_notify_to_digest():
         "notify",
         forced_mute=False,
         notify_ceiling_active=True,
+        mention_override_active=True,  # ceiling blocks mention override
     )
     assert action == "digest"
     assert clamped is True
+
+
+def test_mention_override_forces_notify_post_hoc():
+    action, clamped = apply_safety_constraints(
+        "digest",
+        forced_mute=False,
+        notify_ceiling_active=False,
+        mention_override_active=True,
+    )
+    assert action == "notify"
+    assert clamped is True
+
+
+def test_finalize_model_decision_clamps_raw_notify_under_ceiling():
+    from router.decision import _finalize_model_decision
+
+    ctx = DecisionContext(
+        message=_message(),
+        content=ContentSummary(message_text="Flash sale today only — buy now"),
+        features=_features(urgency=0.8, domain_mismatch=True),
+        risk=_risk(risk_score=0.5, reasons=["Metadata risk signals: domain_mismatch=0.40"]),
+        priority=_priority("digest", ceiling=True, raw="notify"),
+        allowed_evidence_ids=["hist_1"],
+    )
+    raw = {
+        "action": "notify",
+        "message_type": "promotion",
+        "reason": "Verified-looking promo with same-day urgency language.",
+        "confidence": 0.91,
+        "evidence_message_ids": "hist_1",
+    }
+    result = _finalize_model_decision(ctx, raw=raw, source="test")
+    assert result is not None
+    assert result.model_proposed_action == "notify"
+    assert result.action == "digest"
+    assert result.clamped_by_safety is True
+    assert result.raw_model_json == raw
 
 
 def test_filter_evidence_rejects_unknown_ids():
@@ -239,6 +278,7 @@ def test_model_payload_cannot_override_hard_mute(monkeypatch):
             "notify",
             forced_mute=ctx.risk.forced_mute,
             notify_ceiling_active=ctx.priority.technical_ceiling_active,
+            mention_override_active=ctx.priority.mention_override_active,
         )
         calls["hit"] = True
         return DecisionResult(

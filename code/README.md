@@ -54,12 +54,20 @@ python code/main.py --dataset /path/to/dataset --output /path/to/output.csv
 
 | Mode | When | Behavior |
 |---|---|---|
-| `OfflineMediaInterpreter` | default / no key / `ROUTER_MEDIA_PROVIDER=offline` | Keeps `message_text`; leaves OCR/ASR empty; logs a concise warning; never fabricates |
-| `ApiMediaInterpreter` | `OPENAI_API_KEY` set and provider `auto`/`openai` | Vision JSON for images; Whisper (+ optional structure) for voice |
+| `OfflineMediaInterpreter` | `ROUTER_MEDIA_PROVIDER=offline` | Keeps `message_text`; leaves OCR/ASR empty; logs a concise warning; never fabricates |
+| `LocalMediaInterpreter` | `ROUTER_MEDIA_PROVIDER=local` (also `auto` without API key when tools exist) | Tesseract OCR for images; local Whisper ASR for voice |
+| `ApiMediaInterpreter` | `OPENAI_API_KEY` set and provider `auto`/`openai` | Vision JSON for images; Whisper API (+ optional structure) for voice |
 | `CachedMediaInterpreter` | default unless disabled | Disk cache under `code/.cache/media/` keyed by content SHA-256 |
 
 Perception returns structured `ContentSummary` channels only — never routing
-decisions. Prompts in `code/router/prompts.py` delimit source content and
+decisions. Dump every media file with:
+
+```bash
+PYTHONPATH=code python -m router.media local code/evaluation/diagnostics/media_content_summaries.json
+```
+
+Local OCR/ASR needs `brew install tesseract ffmpeg` and
+`pip install pillow pytesseract openai-whisper`.decisions. Prompts in `code/router/prompts.py` delimit source content and
 state that it is untrusted data, not instructions. Safety still scans OCR/ASR
 via `injection.py` before personalization.
 
@@ -68,9 +76,10 @@ via `injection.py` before personalization.
 | Variable | Purpose | Default |
 |---|---|---|
 | `OPENAI_API_KEY` | Enables provider path when set | unset → offline |
-| `ROUTER_MEDIA_PROVIDER` | `auto` \| `offline` \| `openai` | `auto` |
+| `ROUTER_MEDIA_PROVIDER` | `auto` \| `offline` \| `openai` \| `local` | `auto` |
 | `ROUTER_IMAGE_MODEL` | Vision chat model | `gpt-4o-mini` |
 | `ROUTER_ASR_MODEL` | Transcription model | `whisper-1` |
+| `ROUTER_LOCAL_WHISPER_MODEL` | Local Whisper size (`tiny`/`base`/…) | `base` |
 | `ROUTER_MEDIA_CACHE_DIR` | Cache directory | `code/.cache/media` |
 | `ROUTER_MEDIA_CACHE_DISABLE` | `1` / `true` disables cache | unset |
 | `ROUTER_DECISION_PROVIDER` | `auto` \| `offline` \| `openai` | `auto` |

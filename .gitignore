@@ -8,3 +8,5 @@ code/evaluation/diagnostics/
 .env.*
 !.env.example
 
+
+code.zip

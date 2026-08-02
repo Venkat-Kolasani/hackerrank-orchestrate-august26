@@ -1,8 +1,8 @@
 # Message Notification Router
-# Python 3.10+ recommended (tested on 3.14)
+# Python 3.10+ recommended
 #
-# Core offline path (Stages 1–4 offline media) needs no third-party packages.
-# For the optional OpenAI multimodal provider, install:
-#   pip install openai>=1.40.0
+# Core offline path needs no third-party packages.
+# Optional multimodal / decision provider:
+#   pip install "openai>=1.40.0"
 #
-# See code/README.md for environment variable configuration.
+# See README.md for environment variable configuration.

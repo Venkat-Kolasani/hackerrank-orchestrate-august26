@@ -6,15 +6,16 @@ Notification Router** challenge.
 ## Requirements
 
 - Python 3.10+
-- No mandatory third-party packages for the offline baseline (Stages 1–3 +
-  offline media fallback)
+- No mandatory third-party packages for the offline baseline
 
-### Optional provider dependencies (Stage 4)
+### Optional provider dependencies
 
 ```bash
-pip install -r code/requirements.txt
-# installs openai>=1.40 when you want ApiMediaInterpreter
+pip install "openai>=1.40.0"
 ```
+
+`code/requirements.txt` documents this optional dependency. Offline routing
+needs no install beyond Python 3.10+.
 
 Credentials must come from environment variables only — never commit secrets.
 
@@ -85,9 +86,6 @@ invent OCR/ASR text. Exclude `code/.cache/` from submission zips (gitignored).
 python -m pytest code/tests -q
 ```
 
-Media-specific coverage lives in `code/tests/test_media.py` (path resolution,
-offline non-fabrication, unavailable media, cache hashing, prompt delimiters).
-
 ## Evaluation
 
 Sample labels are evaluation-only. Production `code/main.py` refuses
@@ -109,10 +107,10 @@ outside `dataset/`).
 - Stage 3: safety gate — injection scanner + explainable risk before
   personalization (`HARD_MUTE_THRESHOLD=0.75`, notify ceiling floor `0.18`)
 - Stage 4: MediaInterpreter (offline fallback + optional OpenAI + hash cache)
-- Stage 5: constrained decision layer (`code/router/decision.py`) with
-  temperature-0 model path and deterministic fallback
+- Stage 5: constrained decision layer with temperature-0 model path and
+  deterministic fallback
 - Stage 6: sample evaluation harness + aggregate tuning loop
-- Later: packaging / AI judge brief
+- Stage 7: production audit + submission packaging
 
 ## Stage 5 contextual decision
 
@@ -131,9 +129,6 @@ Safety is authoritative after any model response:
 - notify ceiling cannot be weakened to notify
 - evidence IDs must come from the retriever allow-list (else `none`)
 - generic boilerplate reasons are rejected (fallback used)
-
-Additional env vars: `ROUTER_DECISION_PROVIDER`, `ROUTER_DECISION_MODEL`
-(default `gpt-4o-mini`).
 
 ## Stage 2 behavior
 
